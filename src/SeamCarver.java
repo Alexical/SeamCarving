@@ -25,7 +25,7 @@ public class SeamCarver {
             for (int row = 1; row + 1 < height; ++row) {
                 energy[row][0] = 1000;
                 for (int col = 1; col + 1 < width; ++col)
-                    energy[row][col] = dualGradient(row, col);
+                    energy[row][col] = dualGradient(col, row);
                 energy[row][width - 1] = 1000;
             }
             Arrays.fill(energy[height - 1], 1000);
@@ -89,7 +89,7 @@ public class SeamCarver {
                     int wrow = vrow + 1;
                     int wcol = vcol + i - 1;
                     double e = energyTo[vrow][vcol] + energy[wrow][wcol];
-                    if (energyTo[wrow][wcol] > e) {
+                    if (e < energyTo[wrow][wcol]) {
                         energyTo[wrow][wcol] = e;
                         colTo[wrow][wcol] = vcol;
                     }
@@ -99,9 +99,8 @@ public class SeamCarver {
 
         double minEnergy = Double.POSITIVE_INFINITY;
         int minCol = 0;
-        double[] base = energyTo[height - 1];
         for (int col = 1; col + 1 < width; ++col) {
-            double e = base[col];
+            double e = energyTo[height - 1][col];
             if (e < minEnergy) {
                 minEnergy = e;
                 minCol = col;
@@ -130,14 +129,16 @@ public class SeamCarver {
             for (int row = 1; row + 1 < height; ++row) {
                 for (int i = 0; i < 2; ++i) {
                     int col = seam[row] + i - 1;
-                    if (col > 0 && col + 1 < width)
-                        energy[row][col] = dualGradient(row, col);
+                    if (col > 0 && col < width - 1)
+                        energy[row][col] = dualGradient(col, row);
+                    else if (col == 0 || col == width - 1)
+                        energy[row][col] = 1000;
                 }
             }
         } else throw new IllegalArgumentException();
     }
 
-    private double dualGradient(int row, int col) {
+    private double dualGradient(int col, int row) {
         int dx = gradient(rgb[row][col - 1], rgb[row][col + 1]);
         int dy = gradient(rgb[row - 1][col], rgb[row + 1][col]);
         return Math.sqrt(dx + dy);
