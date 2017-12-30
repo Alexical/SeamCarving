@@ -25,7 +25,7 @@ public class SeamCarver {
             for (int row = 1; row + 1 < height; ++row) {
                 energy[row][0] = 1000;
                 for (int col = 1; col + 1 < width; ++col)
-                    energy[row][col] = computeEnergy(row, col);
+                    energy[row][col] = dualGradient(row, col);
                 energy[row][width - 1] = 1000;
             }
             Arrays.fill(energy[height - 1], 1000);
@@ -131,19 +131,19 @@ public class SeamCarver {
                 for (int i = 0; i < 2; ++i) {
                     int col = seam[row] + i - 1;
                     if (col > 0 && col + 1 < width)
-                        energy[row][col] = computeEnergy(row, col);
+                        energy[row][col] = dualGradient(row, col);
                 }
             }
         } else throw new IllegalArgumentException();
     }
 
-    private double computeEnergy(int row, int col) {
-        int dx = computeRGB(rgb[row][col - 1], rgb[row][col + 1]);
-        int dy = computeRGB(rgb[row - 1][col], rgb[row + 1][col]);
+    private double dualGradient(int row, int col) {
+        int dx = gradient(rgb[row][col - 1], rgb[row][col + 1]);
+        int dy = gradient(rgb[row - 1][col], rgb[row + 1][col]);
         return Math.sqrt(dx + dy);
     }
 
-    private int computeRGB(int a, int b) {
+    private int gradient(int a, int b) {
         int e = 0;
         for (int i = 0; i < 3; ++i, a >>= 8, b >>= 8) {
             int d = (a & 0xff) - (b & 0xff);
