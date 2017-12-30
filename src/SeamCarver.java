@@ -182,6 +182,9 @@ public class SeamCarver {
 
     private boolean isValid(int[] seam) {
         if (seam != null && seam.length == height) {
+            for (int col : seam)
+                if (col < 0 || col >= width)
+                    return false;
             for (int i = 0; i + 1 < seam.length; ++i) {
                 int diff = seam[i] - seam[i + 1];
                 if (diff * diff > 1)
