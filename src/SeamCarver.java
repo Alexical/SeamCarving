@@ -145,27 +145,27 @@ public class SeamCarver {
     }
 
     private int gradient(int a, int b) {
-        int e = 0;
+        int gradient = 0;
         for (int i = 0; i < 3; ++i, a >>= 8, b >>= 8) {
-            int d = (a & 0xff) - (b & 0xff);
-            e += d * d;
+            int delta = (a & 0xff) - (b & 0xff);
+            gradient += delta * delta;
         }
-        return e;
+        return gradient;
     }
 
     private void transpose() {
-        int[][] rgbCopy = new int[width][height];
-        double[][] energyCopy = new double[width][height];
+        int[][] rgbT = new int[width][height];
+        double[][] energyT = new double[width][height];
 
         for (int row = 0; row < height; ++row) {
             for (int col = 0; col < width; ++col) {
-                rgbCopy[col][row] = rgb[row][col];
-                energyCopy[col][row] = energy[row][col];
+                rgbT[col][row] = rgb[row][col];
+                energyT[col][row] = energy[row][col];
             }
         }
 
-        rgb = rgbCopy;
-        energy = energyCopy;
+        rgb = rgbT;
+        energy = energyT;
 
         int temp = width;
         width = height;
