@@ -4,39 +4,31 @@ import edu.princeton.cs.algs4.Picture;
 
 public class SeamCarver {
 
-    private int arrWidth, arrHeight;
     private int width, height;
-    private long[] rgbe, rgbeT;
-    private final int[] colTo;
-    private final long[] energyTo;
+    private int[][] rgb;
+    private double[][] energy;
     private boolean isTransposed;
 
     public SeamCarver(Picture picture) {
         if (picture != null) {
-            arrWidth = picture.width();
-            arrHeight = picture.height();
-            width = arrWidth;
-            height = arrHeight;
-            rgbe = new long[width * height];
-            rgbeT = new long[width * height];
-            colTo = new int[width * height];
-            energyTo = new long[width * height];
+            width = picture.width();
+            height = picture.height();
+            rgb = new int[height][width];
+            energy = new double[height][width];
             isTransposed = false;
 
-            for (int row = 0; row < height; ++row) {
-                for (int col = 0; col < width; ++col) {
-                    int v = row * width + col;
-                    int rgb = picture.get(col, row).getRGB();
-                    rgbe[v] = (long) rgb << Integer.SIZE;
-                }
+            for (int row = 0; row < height; ++row)
+                for (int col = 0; col < width; ++col)
+                    rgb[row][col] = picture.get(col, row).getRGB();
+
+            Arrays.fill(energy[0], 1000);
+            for (int row = 1; row + 1 < height; ++row) {
+                energy[row][0] = 1000;
+                for (int col = 1; col + 1 < width; ++col)
+                    energy[row][col] = computeEnergy(row, col);
+                energy[row][width - 1] = 1000;
             }
-            for (int row = 0; row < height; ++row) {
-                for (int col = 0; col < width; ++col) {
-                    int v = row * width + col;
-                    int energy = computeEnergy(col, row);
-                    rgbe[v] |= energy;
-                }
-            }
+            Arrays.fill(energy[height - 1], 1000);
         } else throw new IllegalArgumentException();
     }
 
@@ -44,13 +36,9 @@ public class SeamCarver {
         if (isTransposed)
             transpose();
         Picture picture = new Picture(width, height);
-        for (int row = 0; row < height; ++row) {
-            for (int col = 0; col < width; ++col) {
-                int v = row * arrWidth + col;
-                int rgb = (int) (rgbe[v] >> Integer.SIZE);
-                picture.set(col, row, new Color(rgb));
-            }
-        }
+        for (int row = 0; row < height; ++row)
+            for (int col = 0; col < width; ++col)
+                picture.set(col, row, new Color(rgb[row][col]));
         return picture;
     }
 
@@ -59,10 +47,9 @@ public class SeamCarver {
     public int height() { return isTransposed ? width : height; }
 
     public double energy(int x, int y) {
-        if (isValid(x, y)) {
-            int v = isTransposed ? x * arrWidth + y : y * arrWidth + x;
-            return Math.sqrt((int) rgbe[v]);
-        } else throw new IllegalArgumentException();
+        if (isValid(x, y))
+            return isTransposed ? energy[x][y] : energy[y][x];
+        else throw new IllegalArgumentException();
     }
 
     public int[] findHorizontalSeam() {
@@ -90,36 +77,33 @@ public class SeamCarver {
     }
 
     private int[] findSeam() {
-        Arrays.fill(energyTo, 0, width, 0);
-        for (int row = 1; row < height; ++row) {
-            int fromIndex = row * arrWidth;
-            int toIndex = fromIndex + width;
-            Arrays.fill(energyTo, fromIndex, toIndex, Long.MAX_VALUE);
-        }
+        double[][] energyTo = new double[height][width];
+        int[][] colTo = new int[height][width];
+        Arrays.fill(energyTo[0], 1000);
+        for (int row = 1; row < height; ++row)
+            Arrays.fill(energyTo[row], Double.POSITIVE_INFINITY);
 
-        for (int row = 0; row + 1 < height; ++row) {
-            for (int col = 1; col + 1 < width; ++col) {
-                int v = row * arrWidth + col;
-                int weight = (int) rgbe[v];
+        for (int vrow = 0; vrow + 1 < height; ++vrow) {
+            for (int vcol = 1; vcol + 1 < width; ++vcol) {
                 for (int i = 0; i < 3; ++i) {
-                    int w = (row + 1) * arrWidth + col + i - 1;
-                    if (energyTo[w] > energyTo[v] + weight) {
-                        energyTo[w] = energyTo[v] + weight;
-                        colTo[w] = col;
+                    int wrow = vrow + 1;
+                    int wcol = vcol + i - 1;
+                    double e = energyTo[vrow][vcol] + energy[wrow][wcol];
+                    if (energyTo[wrow][wcol] > e) {
+                        energyTo[wrow][wcol] = e;
+                        colTo[wrow][wcol] = vcol;
                     }
                 }
-                assert Boolean.TRUE;
             }
         }
 
-        long minEnergy = Long.MAX_VALUE;
+        double minEnergy = Double.POSITIVE_INFINITY;
         int minCol = 0;
-        int base = (height - 1) * arrWidth;
+        double[] base = energyTo[height - 1];
         for (int col = 1; col + 1 < width; ++col) {
-            int v = base + col;
-            long energy = energyTo[v];
-            if (energy < minEnergy) {
-                minEnergy = energy;
+            double e = base[col];
+            if (e < minEnergy) {
+                minEnergy = e;
                 minCol = col;
             }
         }
@@ -128,8 +112,7 @@ public class SeamCarver {
         int col = minCol;
         for (int row = height - 1; row >= 0; --row) {
             seam[row] = col;
-            int v = row * arrWidth + col;
-            col = colTo[v];
+            col = colTo[row][col];
         }
         return seam;
     }
@@ -139,61 +122,53 @@ public class SeamCarver {
             --width;
             for (int row = 0; row < height; ++row) {
                 int col = seam[row];
-                int srcPos = row * arrWidth + col + 1;
-                int destPos = srcPos - 1;
-                int length = width - col;
-                System.arraycopy(rgbe, srcPos, rgbe, destPos, length);
+                System.arraycopy(rgb[row], col + 1,
+                                 rgb[row], col, width - col);
+                System.arraycopy(energy[row], col + 1,
+                                 energy[row], col, width - col);
             }
-            for (int row = 0; row < height; ++row) {
+            for (int row = 1; row + 1 < height; ++row) {
                 for (int i = 0; i < 2; ++i) {
                     int col = seam[row] + i - 1;
-                    int v = row * arrWidth + col;
-                    int energy = computeEnergy(col, row);
-                    rgbe[v] &= -1L << Integer.SIZE;
-                    rgbe[v] |= energy;
+                    if (col > 0 && col + 1 < width)
+                        energy[row][col] = computeEnergy(row, col);
                 }
             }
         } else throw new IllegalArgumentException();
     }
 
-    private int computeEnergy(int x, int y) {
-        if (x > 0 && y > 0 && x + 1 < width && y + 1 < height) {
-            int v = y * arrWidth + x;
-            int up = (int) (rgbe[v - arrWidth] >> Integer.SIZE);
-            int left = (int) (rgbe[v - 1] >> Integer.SIZE);
-            int right = (int) (rgbe[v + 1] >> Integer.SIZE);
-            int down = (int) (rgbe[v + arrWidth] >> Integer.SIZE);
-            int energy = 0;
-            for (int i = 0; i < 3; ++i) {
-                int dx = (left & 0xff) - (right & 0xff);
-                int dy = (up & 0xff) - (down & 0xff);
-                energy += dx * dx + dy * dy;
+    private double computeEnergy(int row, int col) {
+        int dx = computeRGB(rgb[row][col - 1], rgb[row][col + 1]);
+        int dy = computeRGB(rgb[row - 1][col], rgb[row + 1][col]);
+        return Math.sqrt(dx + dy);
+    }
 
-                up >>= 8;
-                left >>= 8;
-                right >>= 8;
-                down >>= 8;
-            }
-            return energy;
-        } else return 1000 * 1000;
+    private int computeRGB(int a, int b) {
+        int e = 0;
+        for (int i = 0; i < 3; ++i, a >>= 8, b >>= 8) {
+            int d = (a & 0xff) - (b & 0xff);
+            e += d * d;
+        }
+        return e;
     }
 
     private void transpose() {
-        for (int row = 0; row < height; ++row)
-            for (int col = 0; col < width; ++col)
-                rgbeT[col * arrHeight + row] = rgbe[row * arrWidth + col];
+        int[][] rgbCopy = new int[width][height];
+        double[][] energyCopy = new double[width][height];
 
-        long[] tempRgbe = rgbe;
-        this.rgbe = rgbeT;
-        this.rgbeT = tempRgbe;
+        for (int row = 0; row < height; ++row) {
+            for (int col = 0; col < width; ++col) {
+                rgbCopy[col][row] = rgb[row][col];
+                energyCopy[col][row] = energy[row][col];
+            }
+        }
 
-        int tempArrWidth = arrWidth;
-        arrWidth = arrHeight;
-        arrHeight = tempArrWidth;
+        rgb = rgbCopy;
+        energy = energyCopy;
 
-        int tempWidth = width;
+        int temp = width;
         width = height;
-        height = tempWidth;
+        height = temp;
 
         isTransposed = !isTransposed;
     }
